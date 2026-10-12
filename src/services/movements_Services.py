@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from models.inventory_models import InventoryReceiveRequest, InventoryExchangeRequest, MovementsResponse
+from models.inventory_models import InventoryReceiveRequest, InventoryExchangeRequest
 from repository.movements_repository import recieveProduct, recieveProductNew, exchangeBetweenBins, getmovements
 from secure.decode import data_jwt
 from secure.process_image import image_verification, generate_name_unique

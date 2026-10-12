@@ -63,6 +63,7 @@ CREATE TABLE "order_items" (
   "id_external" varchar(100) UNIQUE NOT NULL,
   "order_id" int NOT NULL,
   "item_id" int NOT NULL,
+  "bin_id" int NOT NULL,
   "quantity_requested" int NOT NULL
 );
 
@@ -117,6 +118,8 @@ ALTER TABLE "orders" ADD FOREIGN KEY ("created_by") REFERENCES "users" ("id") DE
 ALTER TABLE "order_items" ADD FOREIGN KEY ("order_id") REFERENCES "orders" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "order_items" ADD FOREIGN KEY ("item_id") REFERENCES "items" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "order_items" ADD FOREIGN KEY ("bin_id") REFERENCES "bins" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "order_status_history" ADD FOREIGN KEY ("order_id") REFERENCES "orders" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 

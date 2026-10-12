@@ -1,0 +1,196 @@
+from repository.conexion_db import instance_conexion
+from models.orders_model import OrderCreateSchema
+from fastapi import HTTPException, status
+from datetime import datetime
+
+def createOrder(user: str, items: OrderCreateSchema):
+    sql = "SELECT u.id FROM public.users u WHERE u.id_external=%s"
+    parameters = (user,)
+    pool, cursor = instance_conexion.init_conexion()
+    userGet = instance_conexion.one(cursor, sql, parameters)
+    date = datetime.now()
+
+    itemList = []
+    binList = []
+
+    for row in items.items:
+        sql = "SELECT i.id FROM public.items i WHERE i.sku=%s"
+        parameters = (row.item_sku,)
+        itemGet = instance_conexion.one(cursor, sql, parameters)
+        
+        sql = "SELECT b.id FROM public.bins b WHERE b.id_external=%s"
+        parameters = (row.bin_id_external,)
+        binGet = instance_conexion.one(cursor, sql, parameters)
+
+        if itemGet == None or binGet == None:
+            instance_conexion.close_conexion(cursor, pool)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The item or bin don't exist.")
+
+        sql = "SELECT id FROM public.stock_per_bin s WHERE s.item_id = %s AND s.bin_id = %s AND s.quantity_available - s.quantity_reserved >= %s FOR UPDATE"
+        parameters = (itemGet[0], binGet[0], row.quantity)
+        enough = instance_conexion.one(cursor, sql, parameters)
+        if enough == None:
+            instance_conexion.close_conexion(cursor, pool)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The item doesn't have the enough quantity.")
+
+        itemList.append(itemGet[0])
+        binList.append(binGet[0])
+
+    if userGet == None:
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+
+    sql = "INSERT INTO public.orders(id_external, status, created_by, created_at) VALUES (gen_random_uuid(), 1, %s, %s) RETURNING id, id_external"
+    parameters = (userGet[0], date)
+    save = instance_conexion.register(cursor, sql, parameters)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+    orderId = cursor.fetchone()
+
+    for row in range(len(items.items)):
+        sql = "INSERT INTO public.order_items(id_external, order_id, item_id, quantity_requested, bin_id) VALUES (gen_random_uuid(), %s, %s, %s, %s)"
+        parameters = (orderId[0], itemList[row], items.items[row].quantity, binList[row])
+        save = instance_conexion.register(cursor, sql, parameters)
+        if not save:
+            instance_conexion.revert_changes(pool)
+            instance_conexion.close_conexion(cursor, pool)
+            return None, None, None
+
+        sql = "UPDATE public.stock_per_bin SET quantity_reserved=%s WHERE item_id=%s AND bin_id=%s"
+        parameters = (items.items[row].quantity, itemList[row], binList[row])
+        save = instance_conexion.register(cursor, sql, parameters)
+        if not save:
+            instance_conexion.revert_changes(pool)
+            instance_conexion.close_conexion(cursor, pool)
+            return None, None, None
+    
+    sql = "INSERT INTO public.order_status_history(order_id, status, changed_by, changed_at) VALUES (%s, 1, %s, %s)"
+    parameters = (orderId[0], userGet[0], date)
+    save = instance_conexion.register(cursor, sql, parameters)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+
+    save = instance_conexion.execute_change(pool)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+    
+    instance_conexion.close_conexion(cursor, pool)
+    return save, orderId[1], date
+
+def pickOrder(user: str, order: str):
+    sql = "SELECT u.id FROM public.users u WHERE u.id_external=%s"
+    parameters = (user,)
+    pool, cursor = instance_conexion.init_conexion()
+    userGet = instance_conexion.one(cursor, sql, parameters)
+    date = datetime.now()
+
+    sql = "SELECT id FROM public.orders WHERE id_external=%s AND status=1 FOR UPDATE"
+    parameters = (order,)
+    orderGet = instance_conexion.one(cursor, sql, parameters)
+
+    if orderGet == None:
+        instance_conexion.close_conexion(cursor, pool)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The order has already picked up.")
+
+    sql = "SELECT count(id) FROM public.order_items WHERE order_id=%s"
+    parameters = (orderGet[0],)
+    count = instance_conexion.one(cursor, sql, parameters)
+
+    sql = "SELECT item_id, bin_id, quantity_requested FROM public.order_items WHERE order_id=%s"
+    parameters = (orderGet[0],)
+    dataGet = instance_conexion.all_parameters(cursor, sql, parameters)
+    
+    if count == None or dataGet == None:
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+    
+    for row in range(count[0]):
+        sql = "SELECT id FROM public.stock_per_bin WHERE item_id=%s AND bin_id=%s FOR UPDATE"
+        parameters = (dataGet[row][0], dataGet[row][1])
+        stockGet = instance_conexion.one(cursor, sql, parameters)
+            
+        if count == None or dataGet == None:
+            instance_conexion.revert_changes(pool)
+            instance_conexion.close_conexion(cursor, pool)
+            return None, None, None
+        
+        sql = "UPDATE public.stock_per_bin s SET quantity_available= s.quantity_available - %s, quantity_reserved= s.quantity_reserved - %s WHERE id=%s"
+        parameters = (dataGet[row][2], dataGet[row][2], stockGet[0])
+        save = instance_conexion.register(cursor, sql, parameters)
+        if not save:
+            instance_conexion.revert_changes(pool)
+            instance_conexion.close_conexion(cursor, pool)
+            return None, None, None
+
+    sql = "INSERT INTO public.order_status_history(order_id, status, changed_by, changed_at) VALUES (%s, 2, %s, %s)"
+    parameters = (orderGet[0], userGet[0], date)
+    save = instance_conexion.register(cursor, sql, parameters)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+
+    sql = "UPDATE public.orders SET status=2 WHERE id=%s"
+    parameters = (orderGet[0],)
+    save = instance_conexion.register(cursor, sql, parameters)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+
+    save = instance_conexion.execute_change(pool)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+    
+    instance_conexion.close_conexion(cursor, pool)
+
+    return save, order, date
+
+def shipOrder(user: str, order: str):
+    sql = "SELECT u.id FROM public.users u WHERE u.id_external=%s"
+    parameters = (user,)
+    pool, cursor = instance_conexion.init_conexion()
+    userGet = instance_conexion.one(cursor, sql, parameters)
+    date = datetime.now()
+
+    sql = "SELECT id FROM public.orders WHERE id_external=%s AND status=2 FOR UPDATE"
+    parameters = (order,)
+    orderGet = instance_conexion.one(cursor, sql, parameters)
+
+    if orderGet == None:
+        instance_conexion.close_conexion(cursor, pool)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The order has already shipped.")
+
+    sql = "INSERT INTO public.order_status_history(order_id, status, changed_by, changed_at) VALUES (%s, 3, %s, %s)"
+    parameters = (orderGet[0], userGet[0], date)
+    save = instance_conexion.register(cursor, sql, parameters)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+
+    sql = "UPDATE public.orders SET status=3 WHERE id=%s"
+    parameters = (orderGet[0],)
+    save = instance_conexion.register(cursor, sql, parameters)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+
+    save = instance_conexion.execute_change(pool)
+    if not save:
+        instance_conexion.revert_changes(pool)
+        instance_conexion.close_conexion(cursor, pool)
+        return None, None, None
+    
+    instance_conexion.close_conexion(cursor, pool)
+
+    return save, order, date

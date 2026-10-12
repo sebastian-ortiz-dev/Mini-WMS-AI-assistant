@@ -2,9 +2,11 @@ from fastapi import FastAPI, HTTPException, status, Response, Cookie, Depends, U
 from models.login_models import LoginRequest, LoginResponse
 from models.inventory_models import *
 from models.bin_models import *
+from models.orders_model import *
 from services.auth_services import auth
 from services.movements_Services import *
 from services.bin_services import *
+from services.orders_services import *
 from middleware.auth_middleware import auth_verificator
 from typing import Optional
 
@@ -28,7 +30,7 @@ def login(payload: LoginRequest, response: Response) -> LoginResponse:
     return {"message": "Login successful, Welcome!"}
 
 @app.post("/api/v1/auth/logout")
-def logout(response: Response, access_token: str | None = Cookie(default=None)) -> LoginResponse:
+def logout(response: Response) -> LoginResponse:
     response.delete_cookie(key="access_token", secure=False, httponly=True, samesite='lax')
     return {"message": "Logout successful, have a great day!"}
 
@@ -65,7 +67,7 @@ def transfer(payload: InventoryExchangeRequest, access_token: str | None = Cooki
     return {"message": message, "movement": payload.movement}
 
 @app.get("/api/v1/bins", dependencies=[Depends(auth_verificator)])
-def newbin() -> list[ListBins]:
+def getbin() -> list[ListBins]:
     
     bins = listBin()
 
@@ -77,3 +79,31 @@ def newbin(payload: BinCreate) -> LoginResponse:
     message = createBin(payload)
 
     return {"message": message}
+
+@app.path("/api/v1/bins/{bin_id}", dependencies=[Depends(auth_verificator)], status_code=204)
+def newbin(bin_id: str) -> LoginResponse:
+    
+    message = createBin(payload)
+
+    return {"message": message}
+
+@app.post("/api/v1/orders/create", dependencies=[Depends(auth_verificator)], status_code=201)
+def createOrder(payload: OrderCreateSchema, access_token: str | None = Cookie(default=None)) -> OrderResponseSchema:
+
+    response = createNewOrder(payload, access_token)
+
+    return response
+
+@app.post("/api/v1/orders/{id_external}/pick", dependencies=[Depends(auth_verificator)])
+def pickOrder(id_external: str, access_token: str | None = Cookie(default=None)) -> OrderResponsePick:
+
+    response = pickaOrder(id_external, access_token)
+
+    return response
+
+@app.post("/api/v1/orders/{id_external}/ship", dependencies=[Depends(auth_verificator)])
+def shipOrder(id_external: str, access_token: str | None = Cookie(default=None)) -> OrderResponseShip:
+
+    response = shipaOrder(id_external, access_token)
+
+    return response
