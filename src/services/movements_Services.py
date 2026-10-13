@@ -32,6 +32,7 @@ async def recieveItemsNew(sku: str, name: str, description: str, image, bin: str
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not allowed.")
     filename = secure_filename(image.filename)
     archivo = generate_name_unique(filename)
+    file = "products"
     
     payload = data_jwt(cookie)
     change = recieveProductNew(movement, payload["sub"], quantity, bin, sku, name, archivo, description)
@@ -39,8 +40,8 @@ async def recieveItemsNew(sku: str, name: str, description: str, image, bin: str
     if change == None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error to process the data.")
 
-    if not await image_verification(image, filename):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not allowed.")
+    if not await image_verification(image, filename, file):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image format not allowed.")
         
     os.rename(os.path.join(os.getenv("UPLOAD_FOLDER"), filename), os.path.join(os.getenv("UPLOAD_FOLDER"), archivo))
 

@@ -3,11 +3,16 @@ from models.login_models import LoginRequest, LoginResponse
 from models.inventory_models import *
 from models.bin_models import *
 from models.orders_model import *
+from models.user_models import *
+from models.agent_models import *
 from services.auth_services import auth
 from services.movements_Services import *
 from services.bin_services import *
 from services.orders_services import *
+from services.user_services import *
+from services.agent_services import *
 from middleware.auth_middleware import auth_verificator
+from middleware.access_middleware import level_verificator
 from typing import Optional
 
 app = FastAPI(title="WMS app", description="Mini WMS + AI assistant app web project.", summary="Mini WMS + AI assistant app web.",
@@ -80,12 +85,12 @@ def newbin(payload: BinCreate) -> LoginResponse:
 
     return {"message": message}
 
-@app.path("/api/v1/bins/{bin_id}", dependencies=[Depends(auth_verificator)], status_code=204)
-def newbin(bin_id: str) -> LoginResponse:
+@app.patch("/api/v1/bins/{bin_id}", dependencies=[Depends(auth_verificator)], status_code=204)
+def updatebin(bin_id: str, payload: BinUpdateSchema):
     
-    message = createBin(payload)
+    pathBin(payload, bin_id)
 
-    return {"message": message}
+    return 
 
 @app.post("/api/v1/orders/create", dependencies=[Depends(auth_verificator)], status_code=201)
 def createOrder(payload: OrderCreateSchema, access_token: str | None = Cookie(default=None)) -> OrderResponseSchema:
@@ -105,5 +110,36 @@ def pickOrder(id_external: str, access_token: str | None = Cookie(default=None))
 def shipOrder(id_external: str, access_token: str | None = Cookie(default=None)) -> OrderResponseShip:
 
     response = shipaOrder(id_external, access_token)
+
+    return response
+
+@app.post("/api/v1/users", dependencies=[Depends(auth_verificator), Depends(level_verificator)], status_code=201)
+async def create_user(username: str = Form(..., max_length=100, description="usernam"), password: str = Form(..., min_length=6, description="password"), image: UploadFile = File(None, description="Profile image"), role_id: str = Form(..., description="rol id")):
+
+    await newUser(username, password, image, role_id)
+
+    return
+
+@app.get("/api/v1/users", dependencies=[Depends(auth_verificator), Depends(level_verificator)])
+def list_users(q: str | None = None) -> list[UserResponseSchema]:
+
+    users = listUsers(q)
+    
+    return [UserResponseSchema(id_external=row[0], username=row[2], image=row[1]) for row in users]
+
+@app.patch("/api/v1/users/{user_id}", dependencies=[Depends(auth_verificator), Depends(level_verificator)], status_code=204)
+async def update_user(user_id: str, username: str = Form(None, max_length=100, description="username"), password: str = Form(None, min_length=6, description="password"), image: UploadFile = File(None, description="Profile image"),role_id: str = Form(None, description="rol id")) -> None:
+
+    await updateaUser(username, password, image, role_id, user_id)
+    
+    return None
+
+@app.post("/api/v1/ai/query", dependencies=[Depends(auth_verificator)])
+def ai_query_with_langchain(payload: AIQueryRequest):
+    try:
+        response = run_wms_ai_agent(payload.question)
+        
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     return response

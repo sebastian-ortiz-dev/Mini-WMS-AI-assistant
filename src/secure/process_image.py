@@ -6,14 +6,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-async def image_verification(picture, filename):
+async def image_verification(picture, filename, file):
     binary = await picture.read()
     await picture.seek(0)
     im = Image.open(io.BytesIO(binary))
     if im.format.lower() not in os.getenv('ALLOWED_EXTENSIONS'):
         return False
     im.seek(0)      
-    route = os.path.join(os.getenv("UPLOAD_FOLDER"), filename)
+    if file == "products":
+        route = os.path.join(os.getenv("UPLOAD_FOLDER"), filename)
+    else:
+        route = os.path.join(os.getenv("UPLOAD_FOLDER_USERS"), filename)
     im.save(route)
     im.close()
     return True
