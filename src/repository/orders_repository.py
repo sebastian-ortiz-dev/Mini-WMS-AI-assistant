@@ -3,6 +3,54 @@ from models.orders_model import OrderCreateSchema
 from fastapi import HTTPException, status
 from datetime import datetime
 
+def getOrders(limit: int, offset: int, status_filter: str | None = None):
+    sql = "SELECT  o.id_external, u.username, os.status AS order_status, o.created_at FROM public.orders o INNER JOIN public.users u ON o.created_by = u.id INNER JOIN public.order_status os ON o.status = os.id "
+    sql_count = "SELECT  COUNT(*) FROM public.orders o INNER JOIN public.users u ON o.created_by = u.id INNER JOIN public.order_status os ON o.status = os.id "
+
+    filters = []
+    parameters = ()
+    filters_count = []
+    parameters_count = ()
+    
+    pool, cursor = instance_conexion.init_conexion()
+
+    if status_filter is not None and status_filter != "" and status_filter != "string":
+        filters.append("os.status ILIKE %s")
+        filters_count.append("os.status ILIKE %s")
+        parameters += (f"%{status_filter}%",)
+        parameters_count += (f"%{status_filter}%",)
+
+    if filters:
+        sql += " WHERE " + " AND ".join(filters)
+        sql_count += " WHERE " + " AND ".join(filters_count)
+
+    sql += " ORDER BY o.id DESC LIMIT %s OFFSET %s;"
+    parameters += (limit, offset)
+
+    orders = instance_conexion.all_parameters(cursor, sql, parameters)
+    count = instance_conexion.one(cursor, sql_count, parameters_count)
+    
+    instance_conexion.close_conexion(cursor, pool)
+
+    return orders, count
+
+def getOneOrder(id_external: str):
+    sql = "SELECT o.id_external, u.username, os.status AS order_status, o.created_at FROM public.orders o INNER JOIN public.users u ON o.created_by = u.id INNER JOIN public.order_status os ON o.status = os.id WHERE o.id_external = %s"
+    parameters = (id_external, )
+
+    pool, cursor = instance_conexion.init_conexion()
+
+    order = instance_conexion.one(cursor, sql, parameters)
+
+    sql = "SELECT i.sku, i.name, b.generated_code AS bin_code, oi.quantity_requested FROM public.order_items oi INNER JOIN public.items i ON oi.item_id = i.id INNER JOIN public.bins b ON oi.bin_id = b.id INNER JOIN public.orders o ON oi.order_id = o.id WHERE o.id_external = %s"
+
+    items = instance_conexion.all_parameters(cursor, sql, parameters)
+
+    instance_conexion.close_conexion(cursor, pool)
+
+    return order, items
+
+
 def createOrder(user: str, items: OrderCreateSchema):
     sql = "SELECT u.id FROM public.users u WHERE u.id_external=%s"
     parameters = (user,)

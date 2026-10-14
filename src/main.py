@@ -5,12 +5,14 @@ from models.bin_models import *
 from models.orders_model import *
 from models.user_models import *
 from models.agent_models import *
+from models.pagination_models import * 
 from services.auth_services import auth
 from services.movements_Services import *
 from services.bin_services import *
 from services.orders_services import *
 from services.user_services import *
 from services.agent_services import *
+from services.historial_movements_services import *
 from middleware.auth_middleware import auth_verificator
 from middleware.access_middleware import level_verificator
 from typing import Optional
@@ -38,6 +40,20 @@ def login(payload: LoginRequest, response: Response) -> LoginResponse:
 def logout(response: Response) -> LoginResponse:
     response.delete_cookie(key="access_token", secure=False, httponly=True, samesite='lax')
     return {"message": "Logout successful, have a great day!"}
+
+@app.get("/api/v1/stock", dependencies=[Depends(auth_verificator)])
+def stockPerBinList(page: int, limit: int = 20, search_query: str | None = None, bin_code: str | None = None):
+
+    stock, limit_page = getStockPerBin(page, limit, search_query, bin_code)
+    
+    return PaginatedStockPerBinResponse(total_pages=limit_page, page=page, limit=limit, data=stock)
+
+@app.get("/api/v1/inventory/historial_movements", dependencies=[Depends(auth_verificator)])
+def movementsHistorial(page: int, limit: int = 20, item_id: str | None = None, movement_type: str | None = None, movement_external_id: str | None = None) -> PaginatedStockMovementsResponse:
+
+    historial, limit_page = getMovementsHistorial(page, limit, item_id, movement_type, movement_external_id)
+    
+    return PaginatedStockMovementsResponse(total_pages=limit_page, page=page, limit=limit, data=historial)
 
 @app.get("/api/v1/inventory/movements", dependencies=[Depends(auth_verificator)])
 def movementsAll() -> list[MovementsResponse]:
@@ -92,6 +108,20 @@ def updatebin(bin_id: str, payload: BinUpdateSchema):
 
     return 
 
+@app.get("/api/v1/orders", dependencies=[Depends(auth_verificator)])
+def ordersAll(page: int, limit: int = 20, status: str | None = None) -> PaginatedOrdersResponse:
+
+    orders, total_pages = getOrdersPaginated(page, limit, status)
+    print(orders)
+    return PaginatedOrdersResponse(total_pages=total_pages, page=page, limit=limit, data=orders)
+
+@app.get("/api/v1/orders/{id_external}", dependencies=[Depends(auth_verificator)])
+def orderOne(id_external: str):
+
+    order, data_items = getOrder(id_external)
+    
+    return OrderDetailResponseSchema(id_external=order[0], username=order[1], status=order[2], created_at=order[3], items=data_items)
+
 @app.post("/api/v1/orders/create", dependencies=[Depends(auth_verificator)], status_code=201)
 def createOrder(payload: OrderCreateSchema, access_token: str | None = Cookie(default=None)) -> OrderResponseSchema:
 
@@ -135,9 +165,9 @@ async def update_user(user_id: str, username: str = Form(None, max_length=100, d
     return None
 
 @app.post("/api/v1/ai/query", dependencies=[Depends(auth_verificator)])
-def ai_query_with_langchain(payload: AIQueryRequest):
+async def ai_query_with_langchain(payload: AIQueryRequest):
     try:
-        response = run_wms_ai_agent(payload.question)
+        response = await run_wms_ai_agent(payload.question)
         
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
