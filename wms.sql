@@ -69,6 +69,7 @@ CREATE TABLE "order_items" (
 
 CREATE TABLE "order_status_history" (
   "id" serial PRIMARY KEY,
+  "id_external" varchar(100) UNIQUE NOT NULL,
   "order_id" int NOT NULL,
   "status" int NOT NULL,
   "changed_by" int NOT NULL,

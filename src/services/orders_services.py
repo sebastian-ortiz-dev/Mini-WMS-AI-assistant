@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
-from repository.orders_repository import createOrder, pickOrder, shipOrder, getOrders, getOneOrder
-from models.orders_model import OrderCreateSchema, OrderResponseSchema, OrderResponsePick, OrderResponseShip, OrderListItemSchema, OrderItemDetailSchema
+from repository.orders_repository import *
+from models.orders_model import *
 from secure.decode import data_jwt
 import math
 
@@ -15,7 +15,7 @@ def getOrdersPaginated(page: int, limit: int = 20, status_filter: str | None = N
     if orders == None or count == None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error to process the data.")
     
-    limit_pages = math.ceil(count[0] / limit)
+    limit_pages = math.ceil(count / limit)
     
     if page > limit_pages:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The page doesn't exist.")
@@ -30,6 +30,24 @@ def getOrder(id_external: str):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error to process the data.")
 
     return order, [OrderItemDetailSchema(sku=log[0], name=log[1], bin_code=log[2], quantity_requested=log[3]) for log in items]
+
+def getOrderHistorial(page: int, limit: int,  q: str | None = None):
+    if page < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The page doesn't exist.")
+            
+    offset = (page - 1) * limit
+    
+    orders, count = getOrderStatusHistoryPaginated(limit, offset, q)
+    
+    if orders == None or count == None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error to process the data.")
+        
+    limit_pages = math.ceil(count / limit)
+        
+    if page > limit_pages:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The page doesn't exist.")
+
+    return [OrderStatusHistoryItemSchema(id_external=order[0], username=order[1], sku=order[2], item_name=order[3], quantity_requested=order[4], status=order[5], changed_at=order[6], bin_code=order[7]) for order in orders], limit_pages
 
 def createNewOrder(data: OrderCreateSchema, cookie: str) -> OrderResponseSchema:
     payload = data_jwt(cookie)

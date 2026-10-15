@@ -35,6 +35,22 @@ class OrderDetailResponseSchema(BaseModel):
     created_at: datetime = Field(..., description="Timestamp when the order was created")
     items: List[OrderItemDetailSchema] = Field(..., description="List of items included in the order")
 
+class OrderStatusHistoryItemSchema(BaseModel):
+    id_external: str = Field(..., description="External UUID of the status history event")
+    username: str = Field(..., description="User who triggered the status change")
+    sku: str = Field(..., description="Item SKU")
+    item_name: str = Field(..., description="Item name")
+    quantity_requested: int = Field(..., description="Quantity requested")
+    status: str = Field(..., description="Order status at this point")
+    changed_at: datetime = Field(..., description="Timestamp when the status changed")
+    bin_code: str = Field(..., description="Bin code associated with the item")
+
+class PaginatedOrderStatusHistoryResponse(BaseModel):
+    total_pages: int = Field(..., description="Total number of pages available")
+    page: int = Field(..., description="Current page number")
+    limit: int = Field(..., description="Items per page limit")
+    data: List[OrderStatusHistoryItemSchema] = Field(..., description="List of history events")
+
 
 class OrderResponseSchema(BaseModel):
     id_external: str

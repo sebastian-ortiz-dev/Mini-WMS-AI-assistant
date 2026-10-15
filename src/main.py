@@ -112,8 +112,15 @@ def updatebin(bin_id: str, payload: BinUpdateSchema):
 def ordersAll(page: int, limit: int = 20, status: str | None = None) -> PaginatedOrdersResponse:
 
     orders, total_pages = getOrdersPaginated(page, limit, status)
-    print(orders)
+  
     return PaginatedOrdersResponse(total_pages=total_pages, page=page, limit=limit, data=orders)
+
+@app.get("/api/v1/orders_historial", dependencies=[Depends(auth_verificator)])
+def ordersHistorial(page: int, limit: int = 20, q: str | None = None) -> PaginatedOrderStatusHistoryResponse:
+
+    orders, total_pages = getOrderHistorial(page, limit, q)
+
+    return PaginatedOrderStatusHistoryResponse(total_pages=total_pages, page=page, limit=limit, data=orders)
 
 @app.get("/api/v1/orders/{id_external}", dependencies=[Depends(auth_verificator)])
 def orderOne(id_external: str):
