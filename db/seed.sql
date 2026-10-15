@@ -45,10 +45,10 @@ ON CONFLICT (username) DO NOTHING;
 -- ==========================================
 
 INSERT INTO public.bins (id_external, aisle, bay, tier, "position", generated_code) VALUES
-  (gen_random_uuid(), 1, 'C', 3, '03', '1-C-3-03'),
-  (gen_random_uuid(), 1, 'B01', 1, 'P01', 'A1-B01-1-P01'),
-  (gen_random_uuid(), 2, 'A', 2, '01', '2-A-2-01'),
-  (gen_random_uuid(), 2, 'A', 2, '02', '2-A-2-02')
+  ('3b83a15d-5184-495b-9612-d42af8bb4091', 1, 'C', 3, '03', '1-C-3-03'),
+  ('2a7d056a-2139-4141-befc-db84f79e8d35', 1, 'B01', 1, 'P01', 'A1-B01-1-P01'),
+  ('185415f3-654c-4d65-a5b5-10a4560adf86', 2, 'A', 2, '01', '2-A-2-01'),
+  ('ecffd8f8-9f5c-4523-a085-b5836fcdd002', 2, 'A', 2, '02', '2-A-2-02')
 ON CONFLICT (generated_code) DO NOTHING;
 
 -- ==========================================

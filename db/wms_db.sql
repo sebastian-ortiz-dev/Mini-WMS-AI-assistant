@@ -23,6 +23,12 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
+CREATE Schema IF not exists public;
+
+set search_path to  public;
+
+CREATE ROLE ia_agent WITH LOGIN PASSWORD 'agentread';
+
 --
 -- TOC entry 224 (class 1259 OID 131403)
 -- Name: bins; Type: TABLE; Schema: public; Owner: -
