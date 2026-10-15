@@ -1,6 +1,6 @@
 # Mini WMS & AI Assistant Backend
 
-A production-grade backend service for a Warehouse Management System (WMS) built with **FastAPI**, **PostgreSQL**, and an integrated **AI Agent** for natural language inventory operations and read-only database queries.
+A backend service for a Warehouse Management System (WMS) built with **FastAPI**, **PostgreSQL**, and an integrated **AI Agent** for natural language inventory operations and read-only database queries.
 
 ---
 
