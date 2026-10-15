@@ -25,6 +25,9 @@ To satisfy the core requirements of this assessment, several key architectural d
   2. **Database Engine Enforcement:** Even if a prompt injection tricks the model into generating an `UPDATE`, `DELETE`, or `DROP` statement, the PostgreSQL database engine itself rejects it instantly at the driver level due to permission restrictions.
   3. **Scoped Introspection:** The assistant is programmatically restricted to generating safe, read-only analytical queries for inventory levels and open orders.
 
+⚠️ **Important Note on AI Integration:** 
+To run the AI Assistant features, you must configure your own **Google API Key** in your `.env` file (`GOOGLE_API_KEY=your_key_here`). It is strongly recommended to configure the model to use **`gemini-3.5-flash-lite`** to fully leverage the free tier quotas during evaluation.
+
 ---
 
 ## Tech Stack
