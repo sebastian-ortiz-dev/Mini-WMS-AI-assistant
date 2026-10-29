@@ -106,7 +106,7 @@ def createOrder(user: str, items: OrderCreateSchema):
             instance_conexion.close_conexion(cursor, pool)
             return None, None, None
 
-        sql = "UPDATE public.stock_per_bin SET quantity_reserved=%s WHERE item_id=%s AND bin_id=%s"
+        sql = "UPDATE public.stock_per_bin a SET a.quantity_reserved= s.quantity_reserved + %s WHERE item_id=%s AND bin_id=%s"
         parameters = (items.items[row].quantity, itemList[row], binList[row])
         save = instance_conexion.register(cursor, sql, parameters)
         if not save:
