@@ -172,9 +172,9 @@ async def update_user(user_id: str, username: str = Form(None, max_length=100, d
     return None
 
 @app.post("/api/v1/ai/query", dependencies=[Depends(auth_verificator)])
-async def ai_query_with_langchain(payload: AIQueryRequest):
+def ai_query_with_langchain(payload: AIQueryRequest):
     try:
-        response = await run_wms_ai_agent(payload.question)
+        response = run_wms_ai_agent(payload.question)
         
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
